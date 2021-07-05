@@ -6,6 +6,13 @@ from flask_login import LoginManager
 login = LoginManager()
 db = SQLAlchemy()
 
+# class RegistrationMode(db.Model):
+#     __tablename__ = "registration"
+
+#     user_id = db.Column(db.Integer, primary_key=True)
+#     service_id = db.Column(db.Integer, primary_key=True)
+
+
 class UserModel(UserMixin, db.Model):
     __tablename__ = 'users'
 
@@ -13,6 +20,9 @@ class UserModel(UserMixin, db.Model):
     email = db.Column(db.String(80), unique=True)
     username = db.Column(db.String(100))
     password_hash = db.Column(db.String())
+    # normal/admin
+    is_admin = db.Column(db.Boolean, nullable=False)
+#    role = db.Column(db.String(80), nullable=False)
 
     def set_password(self,password):
         self.password_hash = generate_password_hash(password)
