@@ -1,16 +1,27 @@
-from flask import Flask,flash, render_template,request,redirect, session, jsonify
+from flask import Flask,flash, render_template,request, Response, redirect, session, jsonify
 from flask_login import login_required, current_user, login_user, logout_user
 from functools import wraps
+from flask_cors import CORS
+import jsonpickle
+
 from models import UserModel,db,login
 import config
 
+# create a flask application instance
 app = Flask(__name__)
+CORS()
 
+# set secret key
 app.secret_key = 'yoursecretkey'
+
+# load configurations
 app.config.from_object('config')
 app.config.from_pyfile('config.py')
 
+# initialize app for database usage
 db.init_app(app)
+
+# initialize Login manager
 login.init_app(app)
 login.login_view = 'login'
 
@@ -18,16 +29,24 @@ login.login_view = 'login'
 def create_all():
     db.create_all()
 
+# CORS
+@app.after_request
+def allow_cross_domain(response: Response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Headers'] = 'content-type'
+    return response
+
 # routes for main functionalities
-@app.route('/login', methods=['POST'])
+@app.route('/api/login', methods=['POST'])
 def login():
     # get from request body
     json_data = request.json
-    email = json_data['email']
+    username = json_data['username']
     password = json_data['password']
 
-    # find the user by email
-    user = UserModel.query.filter_by(email = email).first()
+
+    # find the user by username
+    user = UserModel.query.filter_by(username = username).first()
 
     # check passowrd and log in
     if user is not None and user.check_password(password):
@@ -36,22 +55,23 @@ def login():
         status = True
     else:
         status = False
-    return jsonify({'result': status})
+
+    return jsonify({'result': status, 'user': UserModel.serialize(user) })
 
 # routes for support functionalities
-@app.route('/register', methods=['POST'])
+@app.route('/api/register', methods=['POST'])
 def register():
     json_data = request.json
     username = json_data['username']
     password = json_data['password']
     role = json_data['role'] # normal/admin
-
+    
     # existence check
-    if UserModel.query.filter_by(email=email).first():
-        return jsonify({'errror': 'email already present' })
+    if UserModel.query.filter_by(username=username).first():
+        return jsonify({'errror': 'username already present' })
 
     # create a new user
-    newUser = UserModel(email=email, username=username, role=role)
+    newUser = UserModel(username=username, role=role)
     newUser.set_password(password)
     try:
         db.session.add(newUser)
@@ -64,7 +84,7 @@ def register():
 
     return jsonify({'result': status})
 
-@app.route('/logout')
+@app.route('/api/logout')
 def logout():
     logout_user()
     session.pop('logged_in', None)
@@ -105,12 +125,24 @@ def admin_required(f):
     return wrap
 
 # test
-@app.route('/multi/<int:num>')
+@app.route('/api/test/log')
+def getServiceLogTest():
+    print("???")
+    filepath = "services/logs/service1-info.log"
+    lines = []
+    with open(filepath) as f:
+        lines = f.read()
+        return jsonify({ 
+            'id' : 1, 
+            'name': 'Service 1', 
+            'raw' : lines })
+
+@app.route('/api/multi/<int:num>')
 @login_required
 def multiTen(num):
     return jsonify({ 'result' : num * 10 })
 
-@app.route('/add/<int:num>')
+@app.route('/api/add/<int:num>')
 @admin_required
 def addTwo(num):
     return jsonify({ 'result' : num + 2 })
