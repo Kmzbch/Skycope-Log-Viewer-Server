@@ -2,9 +2,10 @@ from flask import Flask,flash, render_template,request, Response, redirect, sess
 from flask_login import login_required, current_user, login_user, logout_user
 from functools import wraps
 from flask_cors import CORS
+import json
 import jsonpickle
 
-from models import UserModel,db,login
+from models import UserModel, ServiceModel, db,login
 import config
 
 # create a flask application instance
@@ -21,6 +22,7 @@ app.config.from_pyfile('config.py')
 # initialize app for database usage
 db.init_app(app)
 
+
 # initialize Login manager
 login.init_app(app)
 login.login_view = 'login'
@@ -28,6 +30,34 @@ login.login_view = 'login'
 @app.before_first_request
 def create_all():
     db.create_all()
+
+#    seed data
+    user1 = UserModel(username="user1", role="normal")
+    user1.set_password("user1")
+    user2 = UserModel(username="user2", role="admin")
+    user2.set_password("user1")
+    service1 = ServiceModel(name="Service 1", api_url="abc")
+    service2 = ServiceModel(name="Service 2", api_url="xyz")
+
+    print(user1.username)
+    print(service1.name)
+    print(user1.services)
+
+    user1.services.append(service1)
+    user2.services.append(service1)
+    user2.services.append(service2)
+
+    user = UserModel.query.filter(UserModel.username=='user2').first()
+    service = ServiceModel.query.filter(ServiceModel.name == 'Service 1').first()
+
+    print(user)
+    print(service)
+
+    db.session.add(user1)
+    db.session.add(user2)
+    db.session.add(service1)
+    db.session.add(service2)
+    db.session.commit()
 
 # CORS
 @app.after_request
@@ -55,6 +85,9 @@ def login():
         status = True
     else:
         status = False
+    
+
+
 
     return jsonify({'result': status, 'user': UserModel.serialize(user) })
 
@@ -90,19 +123,20 @@ def logout():
     session.pop('logged_in', None)
     return jsonify({'result': 'success'})
 
-# services
-# # get log
-# @app.route('/services', methods=["GET"])
+# # services
+@app.route('/api/services', methods=["GET"])
 # @login_required
-# def get_services():
-#     # json_data = request.json
-#     # id = json_data['id']
-#     return jsonify({ 'result': "!!!"} )
+def get_services():
+    user_id = request.args.get('user_id')
+
+    # find the user by username
+    user = UserModel.query.get(user_id)
+    service_options = [ServiceModel.serialize(x) for x in user.services]
+    return jsonify({ 'result': service_options } )
+
 @app.route('/services/{id}', methods=["GET"])
 @login_required
 def get_service(id):
-    # json_data = request.json
-    # id = json_data['id']
     return jsonify({ 'result': "!!!"} )
 
 @app.route('/services/{id}/log', methods=["GET"])
@@ -127,7 +161,6 @@ def admin_required(f):
 # test
 @app.route('/api/test/log')
 def getServiceLogTest():
-    print("???")
     filepath = "services/logs/service1-info.log"
     lines = []
     with open(filepath) as f:
