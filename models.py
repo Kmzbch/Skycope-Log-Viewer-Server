@@ -9,12 +9,6 @@ from sqlalchemy.inspection import inspect
 login = LoginManager()
 db = SQLAlchemy()
 
-# associate user and service tables with each other
-user_service = db.Table('user_service',
-					 db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
-					 db.Column('service_id', db.Integer, db.ForeignKey('service.id'), primary_key=True)
-					 )
-
 class Serializer(object):
 
     def serialize(self):
@@ -33,7 +27,6 @@ class UserModel(UserMixin, db.Model, Serializer):
     username = db.Column(String(100))
     password_hash = db.Column(String())
     role = db.Column(String(80), nullable=False)
-    services = db.relationship('ServiceModel', secondary=user_service, backref=db.backref('users'))
 
     # password hash functions
     def set_password(self,password):
@@ -46,7 +39,7 @@ class UserModel(UserMixin, db.Model, Serializer):
     def serialize(self):
         d = Serializer.serialize(self)
         del d['password_hash']
-        del d['services']
+        # del d['services']
         return d
 
     def __repr__(self):
@@ -66,10 +59,11 @@ class ServiceModel(db.Model, Serializer):
     name = db.Column(String(100))
     api_url = db.Column(String())
 
+    access_level = db.Column(Integer)
+
     # helper functions
     def serialize(self):
         d = Serializer.serialize(self)
-        del d['users']
         return d
 
     def __repr__(self):
@@ -77,6 +71,7 @@ class ServiceModel(db.Model, Serializer):
 
 
 engine = create_engine('sqlite:///:memory:', pool_recycle=3600, echo=True)
+db.Model.metadata.drop_all(bind=engine)
 db.Model.metadata.create_all(engine)
 Session = db.sessionmaker(bind=engine, expire_on_commit=False, autocommit=False)
 
