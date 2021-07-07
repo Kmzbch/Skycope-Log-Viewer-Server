@@ -18,6 +18,27 @@ class Serializer(object):
     def serialize_list(l):
         return [m.serialize() for m in l]
 
+# role management by association table
+user_role = db.Table('user_role',
+					 db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
+					 db.Column('role_id', db.Integer, db.ForeignKey('role.id'), primary_key=True)
+					 )
+
+class RoleModel(db.Model, Serializer):
+    __tablename__ = 'role'
+    id = db.Column(Integer, primary_key=True)
+    name = db.Column(String(80), nullable=False)
+    access_level = db.Column(Integer, nullable=False)
+
+    # helper functions
+    def serialize(self):
+        d = Serializer.serialize(self)
+        del d['users']
+        return d
+
+    def __repr__(self):
+        return "RoleModel: %s %s " % (self.id, self.name)
+
 
 class UserModel(UserMixin, db.Model, Serializer):
     __tablename__ = 'user'
@@ -26,7 +47,9 @@ class UserModel(UserMixin, db.Model, Serializer):
     id = db.Column(Integer, primary_key=True)
     username = db.Column(String(100))
     password_hash = db.Column(String())
-    role = db.Column(String(80), nullable=False)
+
+    roles = db.relationship('RoleModel', secondary=user_role, backref=db.backref('users'))
+
 
     # password hash functions
     def set_password(self,password):
@@ -39,11 +62,11 @@ class UserModel(UserMixin, db.Model, Serializer):
     def serialize(self):
         d = Serializer.serialize(self)
         del d['password_hash']
-        # del d['services']
+        del d['roles']
         return d
 
     def __repr__(self):
-        return "UserModel: %s %s %s %s" % (self.id, self.username, self.password_hash, self.role)
+        return "UserModel: %s %s %s" % (self.id, self.username, self.password_hash)
 
 
 @login.user_loader

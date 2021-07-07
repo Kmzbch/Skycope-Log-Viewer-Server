@@ -3,7 +3,7 @@ from flask_login import login_required, current_user, login_user, logout_user
 from functools import wraps
 from flask_cors import CORS
 import json
-from models import UserModel, ServiceModel, db,login
+from models import UserModel, ServiceModel, RoleModel, db,login
 import config
 from flask_restful import Resource, Api, abort
 
@@ -29,17 +29,26 @@ def create_all():
     db.create_all()
 
     # pre-defined users and services
-    user1 = UserModel(username="user1", role="normal")
+    user1 = UserModel(username="user1")
     user1.set_password("user1")
-    user2 = UserModel(username="user2", role="admin")
+    user2 = UserModel(username="user2")
     user2.set_password("user2")
     service1 = ServiceModel(name="Service 1", api_url="/api/services/logs", access_level=1)
     service2 = ServiceModel(name="Service 2", api_url="/api/services/logs", access_level=2)
+
+    # association between user and service
+    role1 = RoleModel(name="normal", access_level=1)
+    role2 = RoleModel(name="admin", access_level=2)
+    user1.roles.append(role1)
+    user2.roles.append(role1)
+    user2.roles.append(role2)
 
     db.session.add(user1)
     db.session.add(user2)
     db.session.add(service1)
     db.session.add(service2)
+    db.session.add(role1)
+    db.session.add(role2)
 
     db.session.commit()
 
@@ -61,8 +70,6 @@ class Login(Resource):
         # find the user by username
         user = UserModel.query.filter_by(username = username).first()
 
-        print(user);
-
         # check password and log in
         if user is not None and user.check_password(password):
             login_user(user)
@@ -83,15 +90,14 @@ class Services(Resource):
     def get(self):
         user_id = request.args.get('user_id')
         user = UserModel.query.get(user_id)
-        user_role = user.role
+        user_roles = user.roles
+        
+        service_options = []
 
         # hard-coded previlege
-        service_options = ServiceModel()
-
-        if(user_role == 'admin'):
-            service_options = ServiceModel.query.filter(ServiceModel.access_level<=2).all()
-        elif(user_role == 'normal'):
-             service_options = ServiceModel.query.filter(ServiceModel.access_level==1).all()
+        for ur in user_roles:
+            available_services = ServiceModel.query.filter(ServiceModel.access_level==ur.access_level).all()
+            service_options.extend(available_services)
 
         service_options = [ServiceModel.serialize(x) for x in service_options]
 
@@ -107,7 +113,7 @@ class ServiceLog(Resource):
 
         if(service_id == "1"):
             filepath = "services/logs/service1-info.log"
-        else:
+        elif(service_id == "2"):
             filepath = "services/logs/service2-info.log"
 
         with open(filepath) as f:
@@ -119,14 +125,13 @@ class Register(Resource):
         json_data = request.json
         username = json_data['username']
         password = json_data['password']
-        role = json_data['role'] # normal/admin
 
         # existence check
         if UserModel.query.filter_by(username=username).first():
             return jsonify({'errror': 'username already present' })
 
         # create a new user
-        newUser = UserModel(username=username, role=role)
+        newUser = UserModel(username=username)
         newUser.set_password(password)
 
         try:
