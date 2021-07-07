@@ -19,44 +19,31 @@ app.secret_key = 'yoursecretkey'
 app.config.from_object('config')
 app.config.from_pyfile('config.py')
 
-# initialize app for database usage
+# initialize
 db.init_app(app)
-
-
-# initialize Login manager
 login.init_app(app)
-login.login_view = 'login'
 
+# create tables and seed data
 @app.before_first_request
 def create_all():
     db.create_all()
 
-#    seed data
     user1 = UserModel(username="user1", role="normal")
     user1.set_password("user1")
     user2 = UserModel(username="user2", role="admin")
     user2.set_password("user1")
-    service1 = ServiceModel(name="Service 1", api_url="abc")
-    service2 = ServiceModel(name="Service 2", api_url="xyz")
-
-    print(user1.username)
-    print(service1.name)
-    print(user1.services)
+    service1 = ServiceModel(name="Service 1", api_url="/api/services/logs")
+    service2 = ServiceModel(name="Service 2", api_url="/api/services/logs")
 
     user1.services.append(service1)
     user2.services.append(service1)
     user2.services.append(service2)
 
-    user = UserModel.query.filter(UserModel.username=='user2').first()
-    service = ServiceModel.query.filter(ServiceModel.name == 'Service 1').first()
-
-    print(user)
-    print(service)
-
     db.session.add(user1)
     db.session.add(user2)
     db.session.add(service1)
     db.session.add(service2)
+
     db.session.commit()
 
 # CORS
@@ -74,7 +61,6 @@ def login():
     username = json_data['username']
     password = json_data['password']
 
-
     # find the user by username
     user = UserModel.query.filter_by(username = username).first()
 
@@ -85,9 +71,6 @@ def login():
         status = True
     else:
         status = False
-    
-
-
 
     return jsonify({'result': status, 'user': UserModel.serialize(user) })
 
@@ -123,31 +106,33 @@ def logout():
     session.pop('logged_in', None)
     return jsonify({'result': 'success'})
 
-# # services
+# services
 @app.route('/api/services', methods=["GET"])
-# @login_required
+@login_required
 def get_services():
     user_id = request.args.get('user_id')
-
-    # find the user by username
     user = UserModel.query.get(user_id)
     service_options = [ServiceModel.serialize(x) for x in user.services]
+
     return jsonify({ 'result': service_options } )
 
-@app.route('/services/{id}', methods=["GET"])
+@app.route('/api/services/logs', methods=["GET"])
 @login_required
-def get_service(id):
-    return jsonify({ 'result': "!!!"} )
+def get_serviceLog():
+    service_id = request.args.get('service_id')
 
-@app.route('/services/{id}/log', methods=["GET"])
-@login_required
-def get_serviceLog(id):
-    # json_data = request.json
-    # id = json_data['id']
-    return jsonify({ 'result': "!!!"} )
+    filepath = ""
+    lines = []
 
+    if(service_id == "1"):
+        filepath = "services/logs/service1-info.log"
+    else:
+        filepath = "services/logs/service2-info.log"
 
-# decorators
+    with open(filepath) as f:
+        lines = f.read()
+        return jsonify({'raw' : lines })
+
 def admin_required(f):
     @wraps(f)
     def wrap(*args, **kwargs):
@@ -157,28 +142,6 @@ def admin_required(f):
             flash("You need to be an admin")
             return jsonify({ 'message' : 'only admin allowed!' })
     return wrap
-
-# test
-@app.route('/api/test/log')
-def getServiceLogTest():
-    filepath = "services/logs/service1-info.log"
-    lines = []
-    with open(filepath) as f:
-        lines = f.read()
-        return jsonify({ 
-            'id' : 1, 
-            'name': 'Service 1', 
-            'raw' : lines })
-
-@app.route('/api/multi/<int:num>')
-@login_required
-def multiTen(num):
-    return jsonify({ 'result' : num * 10 })
-
-@app.route('/api/add/<int:num>')
-@admin_required
-def addTwo(num):
-    return jsonify({ 'result' : num + 2 })
 
 if __name__ == '__main__':
     app.run(
