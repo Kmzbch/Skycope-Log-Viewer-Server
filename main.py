@@ -3,23 +3,20 @@ from flask_login import login_required, current_user, login_user, logout_user
 from functools import wraps
 from flask_cors import CORS
 import json
-import jsonpickle
-
 from models import UserModel, ServiceModel, db,login
 import config
 
 # create a flask application instance
 app = Flask(__name__)
-CORS()
 
-# set secret key
-app.secret_key = 'yoursecretkey'
+# enable cors
+CORS()
 
 # load configurations
 app.config.from_object('config')
 app.config.from_pyfile('config.py')
 
-# initialize
+# instanciate db and login manager
 db.init_app(app)
 login.init_app(app)
 
@@ -28,6 +25,7 @@ login.init_app(app)
 def create_all():
     db.create_all()
 
+    # pre-defined users and services
     user1 = UserModel(username="user1", role="normal")
     user1.set_password("user1")
     user2 = UserModel(username="user2", role="admin")
@@ -35,6 +33,7 @@ def create_all():
     service1 = ServiceModel(name="Service 1", api_url="/api/services/logs")
     service2 = ServiceModel(name="Service 2", api_url="/api/services/logs")
 
+    # association between user and service
     user1.services.append(service1)
     user2.services.append(service1)
     user2.services.append(service2)
@@ -46,7 +45,7 @@ def create_all():
 
     db.session.commit()
 
-# CORS
+# add headers to response for CORS
 @app.after_request
 def allow_cross_domain(response: Response):
     response.headers['Access-Control-Allow-Origin'] = '*'
@@ -64,7 +63,7 @@ def login():
     # find the user by username
     user = UserModel.query.filter_by(username = username).first()
 
-    # check passowrd and log in
+    # check password and log in
     if user is not None and user.check_password(password):
         login_user(user)
         session['logged_in'] = True
@@ -72,33 +71,8 @@ def login():
     else:
         status = False
 
+    # TODO: reconsider return value
     return jsonify({'result': status, 'user': UserModel.serialize(user) })
-
-# routes for support functionalities
-@app.route('/api/register', methods=['POST'])
-def register():
-    json_data = request.json
-    username = json_data['username']
-    password = json_data['password']
-    role = json_data['role'] # normal/admin
-    
-    # existence check
-    if UserModel.query.filter_by(username=username).first():
-        return jsonify({'errror': 'username already present' })
-
-    # create a new user
-    newUser = UserModel(username=username, role=role)
-    newUser.set_password(password)
-    try:
-        db.session.add(newUser)
-        db.session.commit()
-        status = 'success'
-    except:
-        status = 'this user is already registered'
-
-    db.session.close()
-
-    return jsonify({'result': status})
 
 @app.route('/api/logout')
 def logout():
@@ -133,6 +107,35 @@ def get_serviceLog():
         lines = f.read()
         return jsonify({'raw' : lines })
 
+# routes for support functionalities
+@app.route('/api/register', methods=['POST'])
+def register():
+    json_data = request.json
+    username = json_data['username']
+    password = json_data['password']
+    role = json_data['role'] # normal/admin
+    
+    # existence check
+    if UserModel.query.filter_by(username=username).first():
+        return jsonify({'errror': 'username already present' })
+
+    # create a new user
+    newUser = UserModel(username=username, role=role)
+    newUser.set_password(password)
+
+    try:
+        db.session.add(newUser)
+        db.session.commit()
+        status = 'success'
+    except:
+        status = 'this user is already registered'
+
+    db.session.close()
+
+    # TODO: reconsider return value
+    return jsonify({'result': status})
+
+# decorator for admin access (not used)
 def admin_required(f):
     @wraps(f)
     def wrap(*args, **kwargs):
@@ -145,7 +148,7 @@ def admin_required(f):
 
 if __name__ == '__main__':
     app.run(
-        host=config.HOST, 
-        port=config.PORT, 
-        debug=True
+        host=config.HOST,
+        port=config.PORT,
+        debug=config.DEBUG
         )

@@ -1,3 +1,4 @@
+SECRET_KEY='60c6292af2e04162856684d289ea89a3'
 HOST = 'localhost'
 PORT = 5000
 SQLALCHEMY_DATABASE_URI = 'sqlite:///data.db'
