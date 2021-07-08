@@ -60,6 +60,73 @@ def allow_cross_domain(response: Response):
     response.headers['Access-Control-Allow-Headers'] = 'content-type'
     return response
 
+class Users(Resource):
+    def get(self, id=None):
+        if not id:
+            users = [UserModel.serialize(x) for x in UserModel.query.all()]
+            return { 'users' : users}, 200
+
+        user = UserModel.query.filter_by(id=id).first()
+        return { 'user' : UserModel.serialize(user)}, 200
+
+    def post(self):
+        json_data = request.json
+        username = json_data['username']
+        password = json_data['password']
+
+        # existence check
+        if UserModel.query.filter_by(username=username).first():
+            return {'error': 'username already present' }
+
+        # create a new user
+        newUser = UserModel(username=username)
+        newUser.set_password(password)
+
+        try:
+            db.session.add(newUser)
+            db.session.commit()
+        except:
+            abort(409)
+
+        db.session.close()
+
+        return { 'result' : 'created', 'user': UserModel.serialize(newUser) }, 201
+
+    def put(self, id):
+        json_data = request.json
+        username = json_data['username']
+        password = json_data['password']
+
+        user = UserModel.query.filter_by(id=id).first()
+
+        if user is None:
+            return {'error': 'user does not exit' }
+
+        user.username = username
+        user.password = user.set_password(password)
+
+        try:
+            db.session.commit()
+        except:
+            abort(409)
+
+        return {'result': 'updated' }, 202
+
+
+    def delete(self, id):
+        user = UserModel.query.filter_by(id=id).first()
+
+        try:
+            db.session.delete(user)
+            db.session.commit()
+        except:
+            abort(409)
+
+        return {'result': 'deleted' }, 204
+
+
+
+
 class Login(Resource):
     # routes for main functionalities
     def post(self):
@@ -101,6 +168,7 @@ class Services(Resource):
         service_options = [ServiceModel.serialize(x) for x in service_options]
 
         return { 'services': service_options }, 200
+
 
 class ServiceLog(Resource):
     @login_required
@@ -160,6 +228,7 @@ api.add_resource(Logout, '/api/logout')
 api.add_resource(Register, '/api/register')
 api.add_resource(Services, '/api/services')
 api.add_resource(ServiceLog, '/api/services/logs')
+api.add_resource(Users, '/api/users', '/api/users/<string:id>')
 
 if __name__ == '__main__':
     app.run(

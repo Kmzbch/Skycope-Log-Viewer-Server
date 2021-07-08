@@ -60,7 +60,7 @@ class UserModel(UserMixin, db.Model, Serializer):
     # helper functions
     def serialize(self):
         d = Serializer.serialize(self)
-        del d['password_hash']
+        # del d['password_hash']
         del d['roles']
         return d
 
@@ -88,4 +88,3 @@ class ServiceModel(db.Model, Serializer):
 
     def __repr__(self):
         return "ServiceModel: %s %s %s %s" % (self.id, self.name, self.api_url, self.access_level)
-
