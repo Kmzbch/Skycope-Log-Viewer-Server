@@ -1,11 +1,11 @@
-from flask import Flask,flash, render_template,request, Response, redirect, session, jsonify
+from flask import Flask, request, Response, jsonify
 from flask_login import login_required, current_user, login_user, logout_user
-from functools import wraps
 from flask_cors import CORS
-import json
-from models import UserModel, ServiceModel, RoleModel, db,login
-import config
 from flask_restful import Resource, Api, abort
+from functools import wraps
+from models import UserModel, ServiceModel, RoleModel, db,login
+import json
+import config
 
 # create a flask application instance
 app = Flask(__name__)
@@ -25,6 +25,7 @@ login.init_app(app)
 # create tables and seed data
 @app.before_first_request
 def create_all():
+    # refresh database
     db.drop_all()
     db.create_all()
 
@@ -73,16 +74,14 @@ class Login(Resource):
         # check password and log in
         if user is not None and user.check_password(password):
             login_user(user)
-            session['logged_in'] = True
         else:
             abort(403)
 
-        return { 'user': UserModel.serialize(user) }, 200
+        return { 'result' : 'success', 'user': UserModel.serialize(user) }, 200
 
 class Logout(Resource):
     def get(self):
         logout_user()
-        session.pop('logged_in', None)
         return {'result': 'success'}, 200
 
 class Services(Resource):
@@ -101,7 +100,7 @@ class Services(Resource):
 
         service_options = [ServiceModel.serialize(x) for x in service_options]
 
-        return { 'result': service_options }, 200
+        return { 'services': service_options }, 200
 
 class ServiceLog(Resource):
     @login_required
@@ -118,7 +117,7 @@ class ServiceLog(Resource):
 
         with open(filepath) as f:
             lines = f.read()
-            return {'raw' : lines }, 200
+            return {'content' : lines }, 200
 
 class Register(Resource):
     def post(self):
@@ -128,7 +127,7 @@ class Register(Resource):
 
         # existence check
         if UserModel.query.filter_by(username=username).first():
-            return jsonify({'errror': 'username already present' })
+            return {'error': 'username already present' }
 
         # create a new user
         newUser = UserModel(username=username)
@@ -146,15 +145,14 @@ class Register(Resource):
 
 
 # decorator for admin access (not used)
-def admin_required(f):
-    @wraps(f)
-    def wrap(*args, **kwargs):
-        if current_user.is_admin == True:
-            return f(*args, **kwargs)
-        else:
-            flash("You need to be an admin")
-            return jsonify({ 'message' : 'only admin allowed!' })
-    return wrap
+# def admin_required(f):
+#     @wraps(f)
+#     def wrap(*args, **kwargs):
+#         if current_user.is_admin == True:
+#             return f(*args, **kwargs)
+#         else:
+#             return jsonify({ 'message' : 'only admin allowed!' })
+#     return wrap
 
 # add resources
 api.add_resource(Login, '/api/login')

@@ -1,10 +1,10 @@
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, UserMixin
 from sqlalchemy import Integer, ForeignKey, String, Column,create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask_login import LoginManager, UserMixin
 from sqlalchemy.inspection import inspect
+from werkzeug.security import generate_password_hash, check_password_hash
 
 login = LoginManager()
 db = SQLAlchemy()
@@ -26,9 +26,10 @@ user_role = db.Table('user_role',
 
 class RoleModel(db.Model, Serializer):
     __tablename__ = 'role'
-    id = db.Column(Integer, primary_key=True)
-    name = db.Column(String(80), nullable=False)
-    access_level = db.Column(Integer, nullable=False)
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), nullable=False)
+    access_level = db.Column(db.Integer, nullable=False)
 
     # helper functions
     def serialize(self):
@@ -43,13 +44,11 @@ class RoleModel(db.Model, Serializer):
 class UserModel(UserMixin, db.Model, Serializer):
     __tablename__ = 'user'
 
-    # columns
-    id = db.Column(Integer, primary_key=True)
-    username = db.Column(String(100))
-    password_hash = db.Column(String())
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100))
+    password_hash = db.Column(db.String())
 
     roles = db.relationship('RoleModel', secondary=user_role, backref=db.backref('users'))
-
 
     # password hash functions
     def set_password(self,password):
@@ -77,12 +76,10 @@ def load_user(id):
 class ServiceModel(db.Model, Serializer):
     __tablename__ = 'service'
 
-    # columns
-    id = db.Column(Integer, primary_key=True)
-    name = db.Column(String(100))
-    api_url = db.Column(String())
-
-    access_level = db.Column(Integer)
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100))
+    api_url = db.Column(db.String())
+    access_level = db.Column(db.Integer)
 
     # helper functions
     def serialize(self):
@@ -90,22 +87,5 @@ class ServiceModel(db.Model, Serializer):
         return d
 
     def __repr__(self):
-        return "ServiceModel: %s %s %s" % (self.id, self.name, self.api_url)
+        return "ServiceModel: %s %s %s %s" % (self.id, self.name, self.api_url, self.access_level)
 
-
-engine = create_engine('sqlite:///:memory:', pool_recycle=3600, echo=True)
-db.Model.metadata.drop_all(bind=engine)
-db.Model.metadata.create_all(engine)
-Session = db.sessionmaker(bind=engine, expire_on_commit=False, autocommit=False)
-
-class Session(object):
-    def __init__(self):
-        self.session = Sess()
-
-    def __enter__(self):
-        return self.session
-
-    def __exit__(self, *exception):
-        if exception[0] is not None:
-            self.session.rollback()
-        self.session.close()
