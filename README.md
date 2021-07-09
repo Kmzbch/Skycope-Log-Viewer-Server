@@ -40,7 +40,7 @@ $(venv) python main.py
 #### Covered
 - Python 3
     - Flask
-- JavaScript
+- TypeScript
     - Angular12
 - HTML 5
 - Bootstrap
