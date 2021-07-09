@@ -51,4 +51,3 @@ $(venv) python main.py
 
 - NGINX
 - Deloployment on cloud(e.g. AWS)
-- Multiprocessing for running services in backend process
