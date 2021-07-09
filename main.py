@@ -178,10 +178,11 @@ class ServiceLog(Resource):
         filepath = ""
         lines = []
 
+        # hard-coded filepaths
         if(service_id == "1"):
-            filepath = "services/logs/service1-info.log"
+            filepath = "logs/service1-info.log"
         elif(service_id == "2"):
-            filepath = "services/logs/service2-info.log"
+            filepath = "logs/service2-info.log"
 
         with open(filepath) as f:
             lines = f.read()
